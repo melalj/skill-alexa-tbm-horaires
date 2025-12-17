@@ -28,7 +28,7 @@
           "slots": [
             {
               "name": "stopName",
-              "type": "AMAZON.StreetName",
+              "type": "AMAZON.SearchQuery",
               "samples": [
                 "à {stopName}",
                 "arrêt {stopName}",
@@ -88,7 +88,7 @@
           "slots": [
             {
               "name": "stopName",
-              "type": "AMAZON.StreetName",
+              "type": "AMAZON.SearchQuery",
               "samples": [
                 "{stopName}",
                 "arrêt {stopName}",
@@ -107,7 +107,7 @@
             },
             {
               "name": "destinationName",
-              "type": "AMAZON.StreetName",
+              "type": "AMAZON.SearchQuery",
               "samples": [
                 "direction {destinationName}",
                 "vers {destinationName}"
@@ -196,7 +196,7 @@
           "slots": [
             {
               "name": "stopName",
-              "type": "AMAZON.StreetName",
+              "type": "AMAZON.SearchQuery",
               "confirmationRequired": false,
               "elicitationRequired": true,
               "prompts": {
