@@ -56,7 +56,7 @@
         "FR"
       ],
       "distributionMode": "PUBLIC",
-      "category": "TRAVEL_AND_TRANSPORTATION",
+      "category": "PUBLIC_TRANSPORTATION",
       "testingInstructions": "Dites 'Alexa, ouvre TBM Horaires' puis demandez les prochains passages."
     }
   }
