@@ -27,26 +27,8 @@
           "name": "GetNextDeparturesIntent",
           "slots": [
             {
-              "name": "stopName",
-              "type": "AMAZON.SearchQuery",
-              "samples": [
-                "à {stopName}",
-                "arrêt {stopName}",
-                "station {stopName}",
-                "pour {stopName}",
-                "de {stopName}"
-              ]
-            },
-            {
               "name": "lineName",
-              "type": "LINE_TYPE",
-              "samples": [
-                "ligne {lineName}",
-                "le {lineName}",
-                "la {lineName}",
-                "tram {lineName}",
-                "bus {lineName}"
-              ]
+              "type": "LINE_TYPE"
             }
           ],
           "samples": [
@@ -62,21 +44,13 @@
             "prochain bus",
             "prochains trams",
             "prochains bus",
-            "quand passe le prochain à {stopName}",
-            "prochain passage à {stopName}",
-            "prochains passages à {stopName}",
-            "horaires pour {stopName}",
             "quand passe le {lineName}",
             "prochain {lineName}",
-            "quand passe le {lineName} à {stopName}",
-            "prochain passage du {lineName} à {stopName}",
-            "horaires du {lineName} à {stopName}",
-            "le {lineName} à {stopName}",
-            "ligne {lineName} à {stopName}",
+            "prochain passage du {lineName}",
+            "horaires du {lineName}",
             "tram {lineName}",
             "bus {lineName}",
-            "tram à {stopName}",
-            "bus à {stopName}",
+            "ligne {lineName}",
             "c'est quand le prochain",
             "donne moi les horaires",
             "donne moi les prochains passages",
@@ -88,30 +62,7 @@
           "slots": [
             {
               "name": "stopName",
-              "type": "AMAZON.SearchQuery",
-              "samples": [
-                "{stopName}",
-                "arrêt {stopName}",
-                "station {stopName}"
-              ]
-            },
-            {
-              "name": "lineName",
-              "type": "LINE_TYPE",
-              "samples": [
-                "ligne {lineName}",
-                "le {lineName}",
-                "tram {lineName}",
-                "bus {lineName}"
-              ]
-            },
-            {
-              "name": "destinationName",
-              "type": "AMAZON.SearchQuery",
-              "samples": [
-                "direction {destinationName}",
-                "vers {destinationName}"
-              ]
+              "type": "AMAZON.SearchQuery"
             }
           ],
           "samples": [
@@ -119,12 +70,44 @@
             "mon arrêt préféré est {stopName}",
             "définis mon arrêt sur {stopName}",
             "configure l'arrêt {stopName}",
-            "enregistre {stopName} ligne {lineName}",
-            "mon arrêt est {stopName} pour le {lineName}",
-            "configure {stopName} ligne {lineName} direction {destinationName}",
-            "enregistre {stopName} {lineName} vers {destinationName}",
-            "définis {stopName} pour {lineName}",
-            "sauvegarde l'arrêt {stopName}"
+            "mon arrêt est {stopName}",
+            "sauvegarde l'arrêt {stopName}",
+            "arrêt {stopName}",
+            "configure {stopName}",
+            "enregistre {stopName}"
+          ]
+        },
+        {
+          "name": "SetFavoriteLineIntent",
+          "slots": [
+            {
+              "name": "lineName",
+              "type": "LINE_TYPE"
+            }
+          ],
+          "samples": [
+            "ligne {lineName}",
+            "pour le {lineName}",
+            "pour la {lineName}",
+            "tram {lineName}",
+            "bus {lineName}",
+            "c'est le {lineName}",
+            "la ligne {lineName}"
+          ]
+        },
+        {
+          "name": "SetFavoriteDirectionIntent",
+          "slots": [
+            {
+              "name": "destinationName",
+              "type": "AMAZON.SearchQuery"
+            }
+          ],
+          "samples": [
+            "direction {destinationName}",
+            "vers {destinationName}",
+            "en direction de {destinationName}",
+            "destination {destinationName}"
           ]
         },
         {
@@ -158,6 +141,18 @@
             "réinitialise",
             "supprime ma configuration",
             "efface mes préférences"
+          ]
+        },
+        {
+          "name": "ChangeStopIntent",
+          "slots": [],
+          "samples": [
+            "changer d'arrêt",
+            "modifier l'arrêt",
+            "changer mon arrêt",
+            "autre arrêt",
+            "configurer un autre arrêt",
+            "nouvel arrêt"
           ]
         }
       ],
@@ -202,15 +197,6 @@
               "prompts": {
                 "elicitation": "Elicit.Slot.stopName"
               }
-            },
-            {
-              "name": "lineName",
-              "type": "LINE_TYPE",
-              "confirmationRequired": false,
-              "elicitationRequired": true,
-              "prompts": {
-                "elicitation": "Elicit.Slot.lineName"
-              }
             }
           ]
         }
@@ -230,21 +216,7 @@
             "value": "À quel arrêt souhaitez-vous aller ?"
           }
         ]
-      },
-      {
-        "id": "Elicit.Slot.lineName",
-        "variations": [
-          {
-            "type": "PlainText",
-            "value": "Quelle ligne ? Par exemple tram A, liane 1, etc."
-          },
-          {
-            "type": "PlainText",
-            "value": "Pour quelle ligne de tram ou de bus ?"
-          }
-        ]
       }
     ]
   }
 }
-

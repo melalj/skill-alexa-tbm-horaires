@@ -39,6 +39,13 @@ except Exception:
 # Initialize API client
 tbm_client = TBMClient()
 
+# Default stop configuration (can be changed by user)
+DEFAULT_CONFIG = {
+    "stop_name": "Quarante Journaux",
+    "line_name": "Tram C",
+    "dest_name": "Les Pyrénées",
+}
+
 
 def _mins_to(iso_ts: Optional[str]) -> Optional[int]:
     """Convert ISO timestamp to minutes from now."""
@@ -54,9 +61,44 @@ def _mins_to(iso_ts: Optional[str]) -> Optional[int]:
 def get_persistent_attributes(handler_input: HandlerInput) -> dict:
     """Get user preferences from persistence or session."""
     try:
-        return handler_input.attributes_manager.persistent_attributes
+        attrs = handler_input.attributes_manager.persistent_attributes
+        if attrs:
+            return attrs
     except Exception:
-        return handler_input.attributes_manager.session_attributes or {}
+        pass
+    
+    session_attrs = handler_input.attributes_manager.session_attributes or {}
+    if session_attrs:
+        return session_attrs
+    
+    return {}
+
+
+def get_config_or_default(handler_input: HandlerInput) -> dict:
+    """Get user config or initialize with default if none exists."""
+    attrs = get_persistent_attributes(handler_input)
+    
+    # If no config saved, search and cache the default
+    if not attrs.get("stop_point_ref"):
+        # Search for default stop
+        search_results = tbm_client.search_stop(
+            stop_query=DEFAULT_CONFIG["stop_name"],
+            line_query=DEFAULT_CONFIG["line_name"],
+            dest_query=DEFAULT_CONFIG["dest_name"]
+        )
+        if search_results:
+            result = search_results[0]
+            attrs = {
+                "stop_point_ref": result.get("stop_point_ref"),
+                "stop_name": result.get("stop_name") or DEFAULT_CONFIG["stop_name"],
+                "line_ref": result.get("line_ref"),
+                "line_name": result.get("line_name") or DEFAULT_CONFIG["line_name"],
+                "direction_ref": result.get("direction_ref"),
+                "dest_name": result.get("dest_name") or DEFAULT_CONFIG["dest_name"],
+                "is_default": True,
+            }
+    
+    return attrs
 
 
 def save_persistent_attributes(handler_input: HandlerInput, attrs: dict):
@@ -68,6 +110,16 @@ def save_persistent_attributes(handler_input: HandlerInput, attrs: dict):
         handler_input.attributes_manager.session_attributes = attrs
 
 
+def get_session_attributes(handler_input: HandlerInput) -> dict:
+    """Get session attributes."""
+    return handler_input.attributes_manager.session_attributes or {}
+
+
+def set_session_attributes(handler_input: HandlerInput, attrs: dict):
+    """Set session attributes."""
+    handler_input.attributes_manager.session_attributes = attrs
+
+
 class LaunchRequestHandler(AbstractRequestHandler):
     """Handler for Skill Launch."""
 
@@ -75,23 +127,18 @@ class LaunchRequestHandler(AbstractRequestHandler):
         return is_request_type("LaunchRequest")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        attrs = get_persistent_attributes(handler_input)
+        attrs = get_config_or_default(handler_input)
         
-        if attrs.get("stop_point_ref"):
-            # User has a favorite stop configured
-            stop_name = attrs.get("stop_name", "votre arrêt")
-            line_name = attrs.get("line_name", "")
-            speech = f"Bienvenue sur TBM Horaires. Votre arrêt favori est {stop_name}"
-            if line_name:
-                speech += f" pour la ligne {line_name}"
-            speech += ". Dites 'prochain passage' pour les horaires, ou 'configurer' pour changer d'arrêt."
+        stop_name = attrs.get("stop_name", "Quarante Journaux")
+        line_name = attrs.get("line_name", "Tram C")
+        is_default = attrs.get("is_default", False)
+        
+        if is_default:
+            speech = f"Bienvenue. Arrêt par défaut : {stop_name}, {line_name}. "
+            speech += "Dites 'prochain passage' ou 'changer d'arrêt'."
         else:
-            speech = (
-                "Bienvenue sur TBM Horaires ! "
-                "Je peux vous donner les prochains passages des trams et bus de Bordeaux. "
-                "Commencez par configurer votre arrêt en disant par exemple : "
-                "'enregistre l'arrêt Gambetta pour le tram B direction Pessac'."
-            )
+            speech = f"Bienvenue. Votre arrêt : {stop_name}, {line_name}. "
+            speech += "Dites 'prochain passage' ou 'changer d'arrêt'."
 
         return (
             handler_input.response_builder
@@ -108,13 +155,9 @@ class GetNextDeparturesIntentHandler(AbstractRequestHandler):
         return is_intent_name("GetNextDeparturesIntent")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        attrs = get_persistent_attributes(handler_input)
-        
-        # Check for slot values (user might specify stop/line in query)
-        slot_stop = get_slot_value(handler_input, "stopName")
+        attrs = get_config_or_default(handler_input)
         slot_line = get_slot_value(handler_input, "lineName")
         
-        # Use saved preferences if no slots provided
         stop_point_ref = attrs.get("stop_point_ref")
         line_ref = attrs.get("line_ref")
         direction_ref = attrs.get("direction_ref", -1)
@@ -122,40 +165,20 @@ class GetNextDeparturesIntentHandler(AbstractRequestHandler):
         line_name = attrs.get("line_name")
         dest_name = attrs.get("dest_name")
 
-        # If user specified a stop name in the query, try to find it
-        if slot_stop or slot_line:
-            # Search for the stop
-            search_results = tbm_client.search_stop(
-                stop_query=slot_stop,
-                line_query=slot_line
-            )
-            if search_results:
-                result = search_results[0]
-                stop_point_ref = result.get("stop_point_ref")
-                line_ref = result.get("line_ref")
-                direction_ref = result.get("direction_ref", -1)
-                stop_name = result.get("stop_name")
-                line_name = result.get("line_name")
-                dest_name = result.get("dest_name")
-            else:
-                search_term = slot_stop or slot_line
-                speech = f"Je n'ai pas trouvé d'arrêt correspondant à {search_term}. Essayez avec un autre nom."
-                return (
-                    handler_input.response_builder
-                    .speak(speech)
-                    .ask("Quel arrêt cherchez-vous ?")
-                    .response
-                )
+        # If user specified a line, update it
+        if slot_line:
+            line_info = tbm_client.find_line_by_query(slot_line)
+            if line_info:
+                line_ref = line_info.get("line_ref")
+                line_name = line_info.get("line_name")
 
         if not stop_point_ref:
-            speech = (
-                "Vous n'avez pas encore configuré d'arrêt favori. "
-                "Dites par exemple : 'enregistre l'arrêt Gambetta pour le tram B'."
-            )
+            # This shouldn't happen with default config, but just in case
+            speech = "Erreur de configuration. Dites 'enregistre l'arrêt' pour configurer."
             return (
                 handler_input.response_builder
                 .speak(speech)
-                .ask("Quel arrêt souhaitez-vous enregistrer ?")
+                .ask("Quel arrêt ?")
                 .response
             )
 
@@ -172,7 +195,7 @@ class GetNextDeparturesIntentHandler(AbstractRequestHandler):
             return handler_input.response_builder.speak(speech).response
 
         if not departures:
-            speech = f"Il n'y a pas de passage prévu pour {line_name or 'cette ligne'} à {stop_name} dans les prochaines minutes."
+            speech = f"Pas de passage prévu pour {line_name or 'cette ligne'} à {stop_name}."
             return handler_input.response_builder.speak(speech).response
 
         # Build response
@@ -182,11 +205,11 @@ class GetNextDeparturesIntentHandler(AbstractRequestHandler):
         if len(departures) == 1:
             mins = _mins_to(departures[0].get("expected") or departures[0].get("aimed"))
             if mins == 0:
-                speech = f"{line_label}{dest_label} arrive maintenant à {stop_name}."
+                speech = f"{line_label}{dest_label} arrive maintenant."
             elif mins == 1:
-                speech = f"{line_label}{dest_label} arrive dans 1 minute à {stop_name}."
+                speech = f"{line_label}{dest_label} dans 1 minute."
             else:
-                speech = f"{line_label}{dest_label} arrive dans {mins} minutes à {stop_name}."
+                speech = f"{line_label}{dest_label} dans {mins} minutes."
         else:
             times = []
             for dep in departures[:3]:
@@ -199,21 +222,19 @@ class GetNextDeparturesIntentHandler(AbstractRequestHandler):
                     times.append(f"{mins} minutes")
             
             times_str = ", ".join(times[:-1]) + f" et {times[-1]}" if len(times) > 1 else times[0]
-            speech = f"{line_label}{dest_label} à {stop_name} : dans {times_str}."
+            speech = f"{line_label}{dest_label} : dans {times_str}."
 
         return handler_input.response_builder.speak(speech).response
 
 
 class SetFavoriteStopIntentHandler(AbstractRequestHandler):
-    """Handler for setting favorite stop."""
+    """Handler for setting favorite stop - Step 1: Get stop name."""
 
     def can_handle(self, handler_input: HandlerInput) -> bool:
         return is_intent_name("SetFavoriteStopIntent")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
         slot_stop = get_slot_value(handler_input, "stopName")
-        slot_line = get_slot_value(handler_input, "lineName")
-        slot_dest = get_slot_value(handler_input, "destinationName")
 
         if not slot_stop:
             speech = "Je n'ai pas compris le nom de l'arrêt. Pouvez-vous répéter ?"
@@ -224,18 +245,91 @@ class SetFavoriteStopIntentHandler(AbstractRequestHandler):
                 .response
             )
 
-        # Search for matching stops
+        # Save stop name in session for multi-turn
+        session = get_session_attributes(handler_input)
+        session["pending_stop_name"] = slot_stop
+        set_session_attributes(handler_input, session)
+
+        speech = f"D'accord, l'arrêt {slot_stop}. Quelle ligne ? Par exemple 'tram C' ou 'liane 1'."
+        return (
+            handler_input.response_builder
+            .speak(speech)
+            .ask("Quelle ligne ?")
+            .response
+        )
+
+
+class SetFavoriteLineIntentHandler(AbstractRequestHandler):
+    """Handler for setting favorite line - Step 2: Get line."""
+
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("SetFavoriteLineIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        slot_line = get_slot_value(handler_input, "lineName")
+        session = get_session_attributes(handler_input)
+
+        if not slot_line:
+            speech = "Je n'ai pas compris la ligne. Dites par exemple 'tram C' ou 'liane 1'."
+            return (
+                handler_input.response_builder
+                .speak(speech)
+                .ask("Quelle ligne ?")
+                .response
+            )
+
+        # Save line in session
+        session["pending_line_name"] = slot_line
+        set_session_attributes(handler_input, session)
+
+        # Get line info to show available directions
+        line_info = tbm_client.find_line_by_query(slot_line)
+        
+        if line_info:
+            dest = line_info.get("dest_name", "")
+            speech = f"Ligne {slot_line}. Quelle direction ? Par exemple 'direction {dest}' ou dites 'n'importe'."
+        else:
+            speech = f"Ligne {slot_line}. Quelle direction ?"
+
+        return (
+            handler_input.response_builder
+            .speak(speech)
+            .ask("Quelle direction ?")
+            .response
+        )
+
+
+class SetFavoriteDirectionIntentHandler(AbstractRequestHandler):
+    """Handler for setting favorite direction - Step 3: Complete setup."""
+
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("SetFavoriteDirectionIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        slot_dest = get_slot_value(handler_input, "destinationName")
+        session = get_session_attributes(handler_input)
+        
+        pending_stop = session.get("pending_stop_name")
+        pending_line = session.get("pending_line_name")
+
+        if not pending_stop or not pending_line:
+            speech = "Je n'ai pas toutes les informations. Recommencez en disant 'enregistre l'arrêt' suivi du nom."
+            return (
+                handler_input.response_builder
+                .speak(speech)
+                .ask("Quel arrêt souhaitez-vous enregistrer ?")
+                .response
+            )
+
+        # Search for the complete combination
         search_results = tbm_client.search_stop(
-            stop_query=slot_stop,
-            line_query=slot_line,
+            stop_query=pending_stop,
+            line_query=pending_line,
             dest_query=slot_dest
         )
 
         if not search_results:
-            speech = f"Je n'ai pas trouvé d'arrêt '{slot_stop}'"
-            if slot_line:
-                speech += f" pour la ligne {slot_line}"
-            speech += ". Essayez avec un autre nom."
+            speech = f"Je n'ai pas trouvé l'arrêt {pending_stop} pour la ligne {pending_line}. Essayez avec un autre nom."
             return (
                 handler_input.response_builder
                 .speak(speech)
@@ -249,21 +343,24 @@ class SetFavoriteStopIntentHandler(AbstractRequestHandler):
         # Save to persistence
         attrs = {
             "stop_point_ref": result.get("stop_point_ref"),
-            "stop_name": result.get("stop_name"),
+            "stop_name": result.get("stop_name") or pending_stop,
             "line_ref": result.get("line_ref"),
-            "line_name": result.get("line_name"),
+            "line_name": result.get("line_name") or pending_line,
             "direction_ref": result.get("direction_ref"),
-            "dest_name": result.get("dest_name"),
+            "dest_name": result.get("dest_name") or slot_dest,
         }
         save_persistent_attributes(handler_input, attrs)
 
-        stop_name = result.get("stop_name")
-        line_name = result.get("line_name", "")
-        dest_name = result.get("dest_name", "")
+        # Clear session
+        session.pop("pending_stop_name", None)
+        session.pop("pending_line_name", None)
+        set_session_attributes(handler_input, session)
 
-        speech = f"C'est noté ! J'ai enregistré l'arrêt {stop_name}"
-        if line_name:
-            speech += f" pour la ligne {line_name}"
+        stop_name = attrs.get("stop_name")
+        line_name = attrs.get("line_name")
+        dest_name = attrs.get("dest_name")
+
+        speech = f"Parfait ! Arrêt {stop_name}, ligne {line_name}"
         if dest_name:
             speech += f" direction {dest_name}"
         speech += ". Dites 'prochain passage' pour les horaires."
@@ -271,7 +368,7 @@ class SetFavoriteStopIntentHandler(AbstractRequestHandler):
         return (
             handler_input.response_builder
             .speak(speech)
-            .ask("Voulez-vous connaître les prochains passages ?")
+            .ask("Voulez-vous les prochains passages ?")
             .response
         )
 
@@ -283,22 +380,21 @@ class GetFavoriteIntentHandler(AbstractRequestHandler):
         return is_intent_name("GetFavoriteIntent")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        attrs = get_persistent_attributes(handler_input)
+        attrs = get_config_or_default(handler_input)
         
-        if not attrs.get("stop_point_ref"):
-            speech = "Vous n'avez pas encore d'arrêt favori configuré."
-            return handler_input.response_builder.speak(speech).ask("Voulez-vous en configurer un ?").response
+        stop_name = attrs.get("stop_name", "Quarante Journaux")
+        line_name = attrs.get("line_name", "Tram C")
+        dest_name = attrs.get("dest_name", "Les Pyrénées")
+        is_default = attrs.get("is_default", False)
 
-        stop_name = attrs.get("stop_name", "inconnu")
-        line_name = attrs.get("line_name", "")
-        dest_name = attrs.get("dest_name", "")
-
-        speech = f"Votre arrêt favori est {stop_name}"
-        if line_name:
-            speech += f" pour la ligne {line_name}"
+        if is_default:
+            speech = f"Arrêt par défaut : {stop_name}, {line_name}"
+        else:
+            speech = f"Votre arrêt : {stop_name}, {line_name}"
+        
         if dest_name:
             speech += f" direction {dest_name}"
-        speech += "."
+        speech += ". Dites 'changer d'arrêt' pour modifier."
 
         return handler_input.response_builder.speak(speech).response
 
@@ -311,8 +407,19 @@ class ClearFavoriteIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         save_persistent_attributes(handler_input, {})
-        speech = "J'ai supprimé votre arrêt favori. Vous pouvez en configurer un nouveau."
-        return handler_input.response_builder.speak(speech).ask("Quel arrêt souhaitez-vous enregistrer ?").response
+        speech = "J'ai supprimé votre arrêt. Dites 'enregistre l'arrêt' pour en configurer un nouveau."
+        return handler_input.response_builder.speak(speech).ask("Quel arrêt ?").response
+
+
+class ChangeStopIntentHandler(AbstractRequestHandler):
+    """Handler for changing stop - prompts user to enter new stop."""
+
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("ChangeStopIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        speech = "D'accord. Quel arrêt ? Dites 'enregistre l'arrêt' suivi du nom."
+        return handler_input.response_builder.speak(speech).ask("Quel arrêt ?").response
 
 
 class ListLinesIntentHandler(AbstractRequestHandler):
@@ -323,14 +430,11 @@ class ListLinesIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         speech = (
-            "Les principales lignes TBM sont : "
-            "les trams A, B, C et D, "
-            "et les Lianes 1 à 16 pour les bus. "
-            "Il y a aussi le Batcub pour les navettes fluviales. "
-            "Pour configurer votre arrêt, dites par exemple : "
-            "'enregistre l'arrêt Quinconces pour le tram C'."
+            "Les lignes TBM : trams A, B, C, D. "
+            "Bus Lianes 1 à 16. Et le Batcub. "
+            "Pour configurer, dites 'enregistre l'arrêt' suivi du nom."
         )
-        return handler_input.response_builder.speak(speech).ask("Quelle ligne vous intéresse ?").response
+        return handler_input.response_builder.speak(speech).ask("Quelle ligne ?").response
 
 
 class HelpIntentHandler(AbstractRequestHandler):
@@ -341,13 +445,11 @@ class HelpIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         speech = (
-            "Je peux vous donner les horaires des trams et bus TBM de Bordeaux en temps réel. "
-            "Voici ce que vous pouvez faire : "
-            "Dites 'enregistre l'arrêt' suivi du nom de l'arrêt et de la ligne pour sauvegarder votre arrêt favori. "
-            "Ensuite, dites simplement 'prochain passage' pour connaître les horaires. "
-            "Vous pouvez aussi dire 'quel est mon arrêt' pour voir votre configuration."
+            "Je donne les horaires TBM en temps réel. "
+            "Dites 'enregistre l'arrêt' suivi du nom pour configurer. "
+            "Puis 'prochain passage' pour les horaires."
         )
-        return handler_input.response_builder.speak(speech).ask("Que souhaitez-vous faire ?").response
+        return handler_input.response_builder.speak(speech).ask("Que faire ?").response
 
 
 class CancelOrStopIntentHandler(AbstractRequestHandler):
@@ -360,7 +462,7 @@ class CancelOrStopIntentHandler(AbstractRequestHandler):
         )
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        speech = "À bientôt sur TBM Horaires !"
+        speech = "À bientôt !"
         return handler_input.response_builder.speak(speech).response
 
 
@@ -371,12 +473,8 @@ class FallbackIntentHandler(AbstractRequestHandler):
         return is_intent_name("AMAZON.FallbackIntent")(handler_input)
 
     def handle(self, handler_input: HandlerInput) -> Response:
-        speech = (
-            "Désolé, je n'ai pas compris. "
-            "Vous pouvez dire 'prochain passage' pour les horaires, "
-            "ou 'aide' pour plus d'informations."
-        )
-        return handler_input.response_builder.speak(speech).ask("Que souhaitez-vous faire ?").response
+        speech = "Je n'ai pas compris. Dites 'prochain passage' ou 'aide'."
+        return handler_input.response_builder.speak(speech).ask("Que faire ?").response
 
 
 class SessionEndedRequestHandler(AbstractRequestHandler):
@@ -397,8 +495,8 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
 
     def handle(self, handler_input: HandlerInput, exception: Exception) -> Response:
         logger.error(f"Exception: {exception}", exc_info=True)
-        speech = "Désolé, une erreur s'est produite. Veuillez réessayer."
-        return handler_input.response_builder.speak(speech).ask("Que souhaitez-vous faire ?").response
+        speech = "Désolé, une erreur s'est produite. Réessayez."
+        return handler_input.response_builder.speak(speech).ask("Que faire ?").response
 
 
 # Skill Builder
@@ -407,8 +505,11 @@ sb = CustomSkillBuilder(persistence_adapter=dynamodb_adapter) if dynamodb_adapte
 sb.add_request_handler(LaunchRequestHandler())
 sb.add_request_handler(GetNextDeparturesIntentHandler())
 sb.add_request_handler(SetFavoriteStopIntentHandler())
+sb.add_request_handler(SetFavoriteLineIntentHandler())
+sb.add_request_handler(SetFavoriteDirectionIntentHandler())
 sb.add_request_handler(GetFavoriteIntentHandler())
 sb.add_request_handler(ClearFavoriteIntentHandler())
+sb.add_request_handler(ChangeStopIntentHandler())
 sb.add_request_handler(ListLinesIntentHandler())
 sb.add_request_handler(HelpIntentHandler())
 sb.add_request_handler(CancelOrStopIntentHandler())
@@ -418,4 +519,3 @@ sb.add_request_handler(SessionEndedRequestHandler())
 sb.add_exception_handler(CatchAllExceptionHandler())
 
 lambda_handler = sb.lambda_handler()
-

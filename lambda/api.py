@@ -4,6 +4,7 @@ TBM API Client (synchronous version for AWS Lambda)
 Uses SIRI-Lite API from Bordeaux Métropole
 """
 
+import re
 import requests
 import unicodedata
 import logging
@@ -21,6 +22,16 @@ BBOX = (-0.81, 45.10, -0.35, 44.70)
 # Preview interval for departures
 DEFAULT_PREVIEW = "PT90M"
 
+# French number words to digits
+FRENCH_NUMBERS = {
+    "zero": "0", "un": "1", "une": "1", "deux": "2", "trois": "3",
+    "quatre": "4", "cinq": "5", "six": "6", "sept": "7", "huit": "8",
+    "neuf": "9", "dix": "10", "onze": "11", "douze": "12", "treize": "13",
+    "quatorze": "14", "quinze": "15", "seize": "16", "dix-sept": "17",
+    "dix-huit": "18", "dix-neuf": "19", "vingt": "20", "trente": "30",
+    "quarante": "40", "cinquante": "50", "soixante": "60",
+}
+
 
 def normalize_text(text: str) -> str:
     """Normalize text for comparison (remove accents, lowercase)."""
@@ -29,7 +40,59 @@ def normalize_text(text: str) -> str:
     # Remove accents
     nfkd = unicodedata.normalize("NFKD", text)
     ascii_text = "".join(c for c in nfkd if not unicodedata.combining(c))
-    return ascii_text.lower().strip()
+    result = ascii_text.lower().strip()
+    
+    # Convert French number words to digits
+    for word, digit in FRENCH_NUMBERS.items():
+        result = re.sub(rf'\b{word}\b', digit, result)
+    
+    return result
+
+
+def extract_keywords(text: str) -> List[str]:
+    """Extract meaningful keywords from text for fuzzy matching."""
+    if not text:
+        return []
+    normalized = normalize_text(text)
+    # Split on spaces and punctuation, filter short words
+    words = re.split(r'[\s\-\_\,\.]+', normalized)
+    # Keep words with 2+ chars, ignore common articles
+    stopwords = {'le', 'la', 'les', 'de', 'du', 'des', 'a', 'au', 'aux', 'et', 'en'}
+    return [w for w in words if len(w) >= 2 and w not in stopwords]
+
+
+def fuzzy_match(query: str, target: str) -> float:
+    """
+    Calculate fuzzy match score between query and target.
+    Returns score 0.0-1.0 (1.0 = perfect match).
+    """
+    query_norm = normalize_text(query)
+    target_norm = normalize_text(target)
+    
+    # Exact match
+    if query_norm == target_norm:
+        return 1.0
+    
+    # Query contained in target
+    if query_norm in target_norm:
+        return 0.9
+    
+    # Target contained in query
+    if target_norm in query_norm:
+        return 0.8
+    
+    # Keyword matching
+    query_words = extract_keywords(query)
+    target_words = extract_keywords(target)
+    
+    if not query_words or not target_words:
+        return 0.0
+    
+    # Count matching words
+    matches = sum(1 for qw in query_words if any(qw in tw or tw in qw for tw in target_words))
+    score = matches / len(query_words)
+    
+    return score * 0.7  # Max 0.7 for keyword match
 
 
 def to_int(value: Any, default: int = -1) -> int:
@@ -221,40 +284,39 @@ class TBMClient:
         dest_query: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Search for stops matching the query.
-        Returns list of matching stops with their line info.
+        Search for stops matching the query with fuzzy matching.
+        Handles: "40 journaux" = "quarante journaux", "pyrénées" matches any direction with pyrénées.
         """
         results = []
         lines = self.get_lines()
 
-        # Normalize queries
-        stop_norm = normalize_text(stop_query) if stop_query else None
-        line_norm = normalize_text(line_query) if line_query else None
-        dest_norm = normalize_text(dest_query) if dest_query else None
-
-        # Filter lines
+        # Filter lines by line query and/or destination query
         matching_lines = []
         for key, line_info in lines.items():
-            line_name_norm = normalize_text(line_info.get("line_name", ""))
-            line_code_norm = normalize_text(line_info.get("line_code", ""))
-            dest_name_norm = normalize_text(line_info.get("dest_name", ""))
+            line_name = line_info.get("line_name", "")
+            line_code = line_info.get("line_code", "")
+            dest_name = line_info.get("dest_name", "")
 
-            # If line query specified, filter by line
-            if line_norm:
-                if line_norm not in line_name_norm and line_norm not in line_code_norm:
+            # If line query specified, filter by line (fuzzy)
+            if line_query:
+                line_score = max(
+                    fuzzy_match(line_query, line_name),
+                    fuzzy_match(line_query, line_code)
+                )
+                if line_score < 0.5:
                     continue
 
-            # If destination query specified, filter by destination
-            if dest_norm:
-                if dest_norm not in dest_name_norm:
+            # If destination query specified, filter by destination (fuzzy)
+            if dest_query:
+                dest_score = fuzzy_match(dest_query, dest_name)
+                if dest_score < 0.3:  # Lower threshold - "pyrénées" should match
                     continue
 
             matching_lines.append(line_info)
 
         # If no stop query, return lines only (no stop info)
-        if not stop_norm:
+        if not stop_query:
             if matching_lines:
-                # Return first matching line info without stop
                 line = matching_lines[0]
                 return [{
                     "line_ref": line.get("line_ref"),
@@ -267,7 +329,8 @@ class TBMClient:
                 }]
             return []
 
-        # Search stops for matching lines
+        # Search stops for matching lines with fuzzy matching
+        scored_results = []
         for line_info in matching_lines[:5]:  # Limit to avoid too many API calls
             line_ref = line_info.get("line_ref")
             direction_ref = line_info.get("direction_ref", -1)
@@ -276,11 +339,13 @@ class TBMClient:
             
             for stop in stops:
                 stop_name = stop.get("stop_name", "")
-                stop_name_norm = normalize_text(stop_name)
-
-                # Check if stop name matches query
-                if stop_norm in stop_name_norm:
-                    results.append({
+                
+                # Fuzzy match stop name
+                score = fuzzy_match(stop_query, stop_name)
+                
+                if score >= 0.3:  # Threshold for match
+                    scored_results.append({
+                        "score": score,
                         "stop_point_ref": stop.get("stop_point_ref"),
                         "stop_name": stop_name,
                         "line_ref": line_ref,
@@ -290,31 +355,34 @@ class TBMClient:
                         "dest_name": line_info.get("dest_name"),
                     })
 
-        # Sort by relevance (exact match first, then by name)
-        def sort_key(x):
-            name_norm = normalize_text(x.get("stop_name", ""))
-            # Exact match gets priority
-            if name_norm == stop_norm:
-                return (0, name_norm)
-            # Starts with gets second priority
-            if name_norm.startswith(stop_norm):
-                return (1, name_norm)
-            return (2, name_norm)
+        # Sort by score (best match first)
+        scored_results.sort(key=lambda x: -x["score"])
+        
+        # Remove score from results
+        for r in scored_results:
+            r.pop("score", None)
+            results.append(r)
 
-        results.sort(key=sort_key)
         return results[:10]  # Return top 10 matches
 
     def find_line_by_query(self, query: str) -> Optional[Dict[str, Any]]:
-        """Find a line by name or code."""
-        query_norm = normalize_text(query)
+        """Find a line by name or code with fuzzy matching."""
         lines = self.get_lines()
+        best_match = None
+        best_score = 0.0
 
         for key, line_info in lines.items():
-            line_name_norm = normalize_text(line_info.get("line_name", ""))
-            line_code_norm = normalize_text(line_info.get("line_code", ""))
+            line_name = line_info.get("line_name", "")
+            line_code = line_info.get("line_code", "")
 
-            if query_norm in line_name_norm or query_norm == line_code_norm:
-                return line_info
+            score = max(
+                fuzzy_match(query, line_name),
+                fuzzy_match(query, line_code)
+            )
+            
+            if score > best_score:
+                best_score = score
+                best_match = line_info
 
-        return None
+        return best_match if best_score >= 0.5 else None
 
