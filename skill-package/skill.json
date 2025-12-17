@@ -1,0 +1,64 @@
+{
+  "manifest": {
+    "apis": {
+      "custom": {
+        "endpoint": {
+          "sourceDir": "lambda",
+          "uri": "ask-custom-tbm-horaires"
+        },
+        "interfaces": []
+      }
+    },
+    "manifestVersion": "1.0",
+    "permissions": [],
+    "privacyAndCompliance": {
+      "allowsPurchases": false,
+      "containsAds": false,
+      "isChildDirected": false,
+      "isExportCompliant": true,
+      "locales": {
+        "fr-FR": {
+          "privacyPolicyUrl": "",
+          "termsOfUseUrl": ""
+        }
+      },
+      "usesPersonalInfo": false
+    },
+    "publishingInformation": {
+      "automaticDistribution": {
+        "isActive": false
+      },
+      "locales": {
+        "fr-FR": {
+          "description": "Obtenez les prochains passages des trams, bus et Batcub de Bordeaux Métropole (TBM) en temps réel. Demandez simplement les horaires pour votre arrêt préféré.",
+          "examplePhrases": [
+            "Alexa, ouvre TBM Horaires",
+            "Alexa, demande à TBM Horaires les prochains trams",
+            "Alexa, demande à TBM Horaires quand passe le prochain bus"
+          ],
+          "keywords": [
+            "tbm",
+            "bordeaux",
+            "transport",
+            "bus",
+            "tram",
+            "horaires",
+            "temps réel"
+          ],
+          "name": "TBM Horaires",
+          "smallIconUri": "https://raw.githubusercontent.com/melalj/tbm_horaires/main/assets/icon_108.png",
+          "largeIconUri": "https://raw.githubusercontent.com/melalj/tbm_horaires/main/assets/icon_512.png",
+          "summary": "Horaires temps réel des transports TBM Bordeaux"
+        }
+      },
+      "isAvailableWorldwide": false,
+      "distributionCountries": [
+        "FR"
+      ],
+      "distributionMode": "PUBLIC",
+      "category": "TRAVEL_AND_TRANSPORTATION",
+      "testingInstructions": "Dites 'Alexa, ouvre TBM Horaires' puis demandez les prochains passages."
+    }
+  }
+}
+

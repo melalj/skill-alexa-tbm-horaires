@@ -1,0 +1,250 @@
+{
+  "interactionModel": {
+    "languageModel": {
+      "invocationName": "t b m horaires",
+      "intents": [
+        {
+          "name": "AMAZON.CancelIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.HelpIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.StopIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.NavigateHomeIntent",
+          "samples": []
+        },
+        {
+          "name": "AMAZON.FallbackIntent",
+          "samples": []
+        },
+        {
+          "name": "GetNextDeparturesIntent",
+          "slots": [
+            {
+              "name": "stopName",
+              "type": "AMAZON.StreetName",
+              "samples": [
+                "à {stopName}",
+                "arrêt {stopName}",
+                "station {stopName}",
+                "pour {stopName}",
+                "de {stopName}"
+              ]
+            },
+            {
+              "name": "lineName",
+              "type": "LINE_TYPE",
+              "samples": [
+                "ligne {lineName}",
+                "le {lineName}",
+                "la {lineName}",
+                "tram {lineName}",
+                "bus {lineName}"
+              ]
+            }
+          ],
+          "samples": [
+            "quand passe le prochain",
+            "prochain passage",
+            "prochains passages",
+            "les horaires",
+            "les prochains",
+            "à quelle heure passe le prochain",
+            "quand passe le prochain tram",
+            "quand passe le prochain bus",
+            "prochain tram",
+            "prochain bus",
+            "prochains trams",
+            "prochains bus",
+            "quand passe le prochain à {stopName}",
+            "prochain passage à {stopName}",
+            "prochains passages à {stopName}",
+            "horaires pour {stopName}",
+            "quand passe le {lineName}",
+            "prochain {lineName}",
+            "quand passe le {lineName} à {stopName}",
+            "prochain passage du {lineName} à {stopName}",
+            "horaires du {lineName} à {stopName}",
+            "le {lineName} à {stopName}",
+            "ligne {lineName} à {stopName}",
+            "tram {lineName}",
+            "bus {lineName}",
+            "tram à {stopName}",
+            "bus à {stopName}",
+            "c'est quand le prochain",
+            "donne moi les horaires",
+            "donne moi les prochains passages",
+            "quel est le prochain passage"
+          ]
+        },
+        {
+          "name": "SetFavoriteStopIntent",
+          "slots": [
+            {
+              "name": "stopName",
+              "type": "AMAZON.StreetName",
+              "samples": [
+                "{stopName}",
+                "arrêt {stopName}",
+                "station {stopName}"
+              ]
+            },
+            {
+              "name": "lineName",
+              "type": "LINE_TYPE",
+              "samples": [
+                "ligne {lineName}",
+                "le {lineName}",
+                "tram {lineName}",
+                "bus {lineName}"
+              ]
+            },
+            {
+              "name": "destinationName",
+              "type": "AMAZON.StreetName",
+              "samples": [
+                "direction {destinationName}",
+                "vers {destinationName}"
+              ]
+            }
+          ],
+          "samples": [
+            "enregistre l'arrêt {stopName}",
+            "mon arrêt préféré est {stopName}",
+            "définis mon arrêt sur {stopName}",
+            "configure l'arrêt {stopName}",
+            "enregistre {stopName} ligne {lineName}",
+            "mon arrêt est {stopName} pour le {lineName}",
+            "configure {stopName} ligne {lineName} direction {destinationName}",
+            "enregistre {stopName} {lineName} vers {destinationName}",
+            "définis {stopName} pour {lineName}",
+            "sauvegarde l'arrêt {stopName}"
+          ]
+        },
+        {
+          "name": "ListLinesIntent",
+          "slots": [],
+          "samples": [
+            "quelles sont les lignes",
+            "liste des lignes",
+            "les lignes disponibles",
+            "quelles lignes",
+            "montre les lignes"
+          ]
+        },
+        {
+          "name": "GetFavoriteIntent",
+          "slots": [],
+          "samples": [
+            "quel est mon arrêt",
+            "mon arrêt préféré",
+            "mon arrêt favori",
+            "affiche mon arrêt",
+            "ma configuration"
+          ]
+        },
+        {
+          "name": "ClearFavoriteIntent",
+          "slots": [],
+          "samples": [
+            "supprime mon arrêt",
+            "efface mon arrêt",
+            "réinitialise",
+            "supprime ma configuration",
+            "efface mes préférences"
+          ]
+        }
+      ],
+      "types": [
+        {
+          "name": "LINE_TYPE",
+          "values": [
+            { "name": { "value": "tram A", "synonyms": ["tramway A", "ligne A", "A"] } },
+            { "name": { "value": "tram B", "synonyms": ["tramway B", "ligne B", "B"] } },
+            { "name": { "value": "tram C", "synonyms": ["tramway C", "ligne C", "C"] } },
+            { "name": { "value": "tram D", "synonyms": ["tramway D", "ligne D", "D"] } },
+            { "name": { "value": "liane 1", "synonyms": ["bus 1", "ligne 1", "1"] } },
+            { "name": { "value": "liane 2", "synonyms": ["bus 2", "ligne 2", "2"] } },
+            { "name": { "value": "liane 3", "synonyms": ["bus 3", "ligne 3", "3"] } },
+            { "name": { "value": "liane 4", "synonyms": ["bus 4", "ligne 4", "4"] } },
+            { "name": { "value": "liane 5", "synonyms": ["bus 5", "ligne 5", "5"] } },
+            { "name": { "value": "liane 6", "synonyms": ["bus 6", "ligne 6", "6"] } },
+            { "name": { "value": "liane 7", "synonyms": ["bus 7", "ligne 7", "7"] } },
+            { "name": { "value": "liane 8", "synonyms": ["bus 8", "ligne 8", "8"] } },
+            { "name": { "value": "liane 9", "synonyms": ["bus 9", "ligne 9", "9"] } },
+            { "name": { "value": "liane 10", "synonyms": ["bus 10", "ligne 10", "10"] } },
+            { "name": { "value": "liane 11", "synonyms": ["bus 11", "ligne 11", "11"] } },
+            { "name": { "value": "liane 15", "synonyms": ["bus 15", "ligne 15", "15"] } },
+            { "name": { "value": "liane 16", "synonyms": ["bus 16", "ligne 16", "16"] } },
+            { "name": { "value": "batcub", "synonyms": ["bateau", "navette fluviale", "bat cube"] } }
+          ]
+        }
+      ]
+    },
+    "dialog": {
+      "intents": [
+        {
+          "name": "SetFavoriteStopIntent",
+          "confirmationRequired": false,
+          "prompts": {},
+          "slots": [
+            {
+              "name": "stopName",
+              "type": "AMAZON.StreetName",
+              "confirmationRequired": false,
+              "elicitationRequired": true,
+              "prompts": {
+                "elicitation": "Elicit.Slot.stopName"
+              }
+            },
+            {
+              "name": "lineName",
+              "type": "LINE_TYPE",
+              "confirmationRequired": false,
+              "elicitationRequired": true,
+              "prompts": {
+                "elicitation": "Elicit.Slot.lineName"
+              }
+            }
+          ]
+        }
+      ],
+      "delegationStrategy": "ALWAYS"
+    },
+    "prompts": [
+      {
+        "id": "Elicit.Slot.stopName",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "Quel est le nom de l'arrêt ?"
+          },
+          {
+            "type": "PlainText",
+            "value": "À quel arrêt souhaitez-vous aller ?"
+          }
+        ]
+      },
+      {
+        "id": "Elicit.Slot.lineName",
+        "variations": [
+          {
+            "type": "PlainText",
+            "value": "Quelle ligne ? Par exemple tram A, liane 1, etc."
+          },
+          {
+            "type": "PlainText",
+            "value": "Pour quelle ligne de tram ou de bus ?"
+          }
+        ]
+      }
+    ]
+  }
+}
+
