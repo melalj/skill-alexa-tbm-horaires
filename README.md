@@ -13,7 +13,7 @@ Horaires temps réel des transports TBM (Bordeaux Métropole) via l'API **SIRI-L
 
 1. Allez sur [Alexa Developer Console](https://developer.amazon.com/alexa/console/ask)
 2. Cliquez sur **Create Skill** → **Import skill**
-3. Entrez l'URL du repo : `https://github.com/melalj/tbm_horaires.git`
+3. Entrez l'URL du repo : `https://github.com/melalj/skill-alexa-tbm-horaires.git`
 4. Cliquez sur **Import**
 
 ## 📁 Structure

@@ -46,8 +46,8 @@
             "temps réel"
           ],
           "name": "TBM Horaires",
-          "smallIconUri": "https://raw.githubusercontent.com/melalj/tbm_horaires/main/assets/icon_108.png",
-          "largeIconUri": "https://raw.githubusercontent.com/melalj/tbm_horaires/main/assets/icon_512.png",
+          "smallIconUri": "https://raw.githubusercontent.com/melalj/skill-alexa-tbm-horaires/main/assets/icon_108.png",
+          "largeIconUri": "https://raw.githubusercontent.com/melalj/skill-alexa-tbm-horaires/main/assets/icon_512.png",
           "summary": "Horaires temps réel des transports TBM Bordeaux"
         }
       },
