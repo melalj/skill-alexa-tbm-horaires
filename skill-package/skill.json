@@ -32,9 +32,9 @@
         "fr-FR": {
           "description": "Obtenez les prochains passages des trams, bus et Batcub de Bordeaux Métropole (TBM) en temps réel. Demandez simplement les horaires pour votre arrêt préféré.",
           "examplePhrases": [
-            "Alexa, ouvre TBM Horaires",
-            "Alexa, demande à TBM Horaires les prochains trams",
-            "Alexa, demande à TBM Horaires quand passe le prochain bus"
+            "Alexa, ouvre horaires bordeaux",
+            "Alexa, demande à horaires bordeaux les prochains trams",
+            "Alexa, demande à horaires bordeaux quand passe le prochain bus"
           ],
           "keywords": [
             "tbm",

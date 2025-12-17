@@ -4,7 +4,7 @@ Horaires temps réel des transports TBM (Bordeaux Métropole) via l'API **SIRI-L
 
 ## 🎤 Commandes vocales
 
-- "Alexa, ouvre TBM Horaires"
+- "Alexa, ouvre horaires bordeaux"
 - "Prochain passage"
 - "Quand passe le prochain tram ?"
 - "Enregistre l'arrêt Gambetta pour le tram B"
